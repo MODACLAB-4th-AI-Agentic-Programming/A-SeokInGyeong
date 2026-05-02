@@ -6,3 +6,7 @@
 IMPLEMENT_PRIMARY_GAME_MODULE( FDefaultGameModuleImpl, AI_NPC_Chat, "AI_NPC_Chat" );
 
 DEFINE_LOG_CATEGORY(LogAI_NPC_Chat)
+
+#include "NpcChatTypes.h"
+
+DEFINE_LOG_CATEGORY(LogNpcChat);
