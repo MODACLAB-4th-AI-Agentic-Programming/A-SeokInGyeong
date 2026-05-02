@@ -18,7 +18,12 @@ public class AI_NPC_Chat : ModuleRules
 			"StateTreeModule",
 			"GameplayStateTreeModule",
 			"UMG",
-			"Slate"
+			"Slate",
+			// ── NPC Chat 추가 모듈 ──
+			"SlateCore",
+			"HTTP",
+			"Json",
+			"JsonUtilities"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] { });
