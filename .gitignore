@@ -1,0 +1,23 @@
+# Unreal Engine generated
+Binaries/
+DerivedDataCache/
+Intermediate/
+Saved/
+*.VC.db
+*.opensdf
+*.opendb
+*.sdf
+*.sln
+*.suo
+*.xcodeproj
+*.xcworkspace
+
+# Visual Studio
+.vs/
+
+# Worktree (Claude Code agent workspace)
+AI_NPC_Chat/.claude/worktrees/
+
+# Large binary uassets that change too often (선택적 — 현재는 트래킹)
+# Content/__ExternalActors__/
+# Content/__ExternalObjects__/
