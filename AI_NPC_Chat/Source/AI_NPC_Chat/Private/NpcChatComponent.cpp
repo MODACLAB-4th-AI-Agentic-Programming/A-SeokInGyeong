@@ -155,7 +155,22 @@ void UNpcChatComponent::HandleHttpResponse(FHttpRequestPtr Request,
     UE_LOG(LogNpcChat, Log, TEXT("[%s] Parsed reply='%s', emotion='%s'"),
            *NpcName, *Reply, *Emotion);
 
-    // History 누적은 Task 7 에서 추가.
+    // History 누적
+    {
+        FNpcChatMessage UserEntry;
+        UserEntry.Role = TEXT("user");
+        UserEntry.Content = PendingUserInput;
+        History.Add(UserEntry);
+
+        FNpcChatMessage AssistantEntry;
+        AssistantEntry.Role = TEXT("assistant");
+        AssistantEntry.Content = Reply;
+        History.Add(AssistantEntry);
+
+        TrimHistory();
+    }
+
+    PendingUserInput.Reset();
 
     OnChatResponseReceived.Broadcast(Reply, Emotion, Affinity);
 }
@@ -243,5 +258,11 @@ bool UNpcChatComponent::ParseAssistantJson(const FString& Content,
 
 void UNpcChatComponent::TrimHistory()
 {
-    // stub — Task 7에서 구현
+    const int32 MaxItems = MaxHistoryTurns * 2;   // 1턴 = user+assistant
+    if (History.Num() <= MaxItems)
+    {
+        return;
+    }
+    const int32 RemoveCount = History.Num() - MaxItems;
+    History.RemoveAt(0, RemoveCount, EAllowShrinking::Yes);
 }
