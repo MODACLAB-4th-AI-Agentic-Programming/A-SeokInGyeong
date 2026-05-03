@@ -40,7 +40,27 @@ void UNpcChatComponent::SendPlayerMessage(const FString& PlayerInput)
     UE_LOG(LogNpcChat, Log, TEXT("[%s] Outgoing request body:\n%s"),
            *NpcName, *BodyString);
 
-    // HTTP 송신은 Task 5 에서 추가. 일단 여기서 끝.
+    // ── HTTP 송신 ──
+    FHttpModule& Http = FHttpModule::Get();
+    TSharedRef<IHttpRequest, ESPMode::ThreadSafe> Request = Http.CreateRequest();
+    Request->SetURL(ServerUrl);
+    Request->SetVerb(TEXT("POST"));
+    Request->SetHeader(TEXT("Content-Type"), TEXT("application/json"));
+    Request->SetTimeout(static_cast<float>(TimeoutSeconds));
+    Request->SetContentAsString(BodyString);
+    Request->OnProcessRequestComplete().BindUObject(
+        this, &UNpcChatComponent::HandleHttpResponse);
+
+    if (!Request->ProcessRequest())
+    {
+        UE_LOG(LogNpcChat, Error, TEXT("[%s] Failed to start HTTP request."), *NpcName);
+        OnChatRequestFailed.Broadcast(TEXT("HTTP 요청 시작 실패"));
+        return;
+    }
+
+    bRequestInFlight = true;
+    UE_LOG(LogNpcChat, Log, TEXT("[%s] HTTP request started → %s"),
+           *NpcName, *ServerUrl);
 }
 
 void UNpcChatComponent::ClearHistory()
@@ -57,7 +77,28 @@ void UNpcChatComponent::HandleHttpResponse(FHttpRequestPtr Request,
                                            FHttpResponsePtr Response,
                                            bool bWasSuccessful)
 {
-    // stub — Task 5에서 구현
+    bRequestInFlight = false;
+
+    if (!bWasSuccessful || !Response.IsValid())
+    {
+        UE_LOG(LogNpcChat, Error, TEXT("[%s] HTTP failed: connection/no response."), *NpcName);
+        OnChatRequestFailed.Broadcast(TEXT("연결 실패"));
+        return;
+    }
+
+    const int32 StatusCode = Response->GetResponseCode();
+    const FString RawBody = Response->GetContentAsString();
+
+    UE_LOG(LogNpcChat, Log, TEXT("[%s] HTTP %d, raw response:\n%s"),
+           *NpcName, StatusCode, *RawBody);
+
+    if (StatusCode != 200)
+    {
+        OnChatRequestFailed.Broadcast(FString::Printf(TEXT("HTTP %d"), StatusCode));
+        return;
+    }
+
+    // 파싱 + 델리게이트 발사는 Task 6 에서 추가. 여기서는 raw 로그만.
 }
 
 FString UNpcChatComponent::BuildSystemPrompt() const
