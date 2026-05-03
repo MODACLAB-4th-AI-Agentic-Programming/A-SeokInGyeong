@@ -18,6 +18,5 @@ Saved/
 # Worktree (Claude Code agent workspace)
 AI_NPC_Chat/.claude/worktrees/
 
-# Large binary uassets that change too often (선택적 — 현재는 트래킹)
-# Content/__ExternalActors__/
-# Content/__ExternalObjects__/
+# Content 바이너리 — git에서 제외 (Source만 관리)
+AI_NPC_Chat/Content/
