@@ -98,7 +98,66 @@ void UNpcChatComponent::HandleHttpResponse(FHttpRequestPtr Request,
         return;
     }
 
-    // 파싱 + 델리게이트 발사는 Task 6 에서 추가. 여기서는 raw 로그만.
+    // 1) Top-level 응답 파싱
+    TSharedPtr<FJsonObject> Root;
+    TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(RawBody);
+    if (!FJsonSerializer::Deserialize(Reader, Root) || !Root.IsValid())
+    {
+        UE_LOG(LogNpcChat, Error, TEXT("[%s] Top-level JSON parse failed."), *NpcName);
+        OnChatRequestFailed.Broadcast(TEXT("응답 JSON 파싱 실패"));
+        return;
+    }
+
+    // 2) choices[0].message.content 추출
+    const TArray<TSharedPtr<FJsonValue>>* ChoicesArray = nullptr;
+    if (!Root->TryGetArrayField(TEXT("choices"), ChoicesArray)
+        || !ChoicesArray
+        || ChoicesArray->Num() == 0)
+    {
+        UE_LOG(LogNpcChat, Error, TEXT("[%s] No choices in response."), *NpcName);
+        OnChatRequestFailed.Broadcast(TEXT("응답에 choices 없음"));
+        return;
+    }
+
+    const TSharedPtr<FJsonObject>* FirstChoiceObj = nullptr;
+    if (!(*ChoicesArray)[0]->TryGetObject(FirstChoiceObj) || !FirstChoiceObj)
+    {
+        OnChatRequestFailed.Broadcast(TEXT("choices[0] 객체 아님"));
+        return;
+    }
+
+    const TSharedPtr<FJsonObject>* MessageObj = nullptr;
+    if (!(*FirstChoiceObj)->TryGetObjectField(TEXT("message"), MessageObj) || !MessageObj)
+    {
+        OnChatRequestFailed.Broadcast(TEXT("choices[0].message 없음"));
+        return;
+    }
+
+    FString AssistantContent;
+    if (!(*MessageObj)->TryGetStringField(TEXT("content"), AssistantContent))
+    {
+        OnChatRequestFailed.Broadcast(TEXT("message.content 없음"));
+        return;
+    }
+
+    // 3) content를 다시 JSON으로 파싱 시도
+    FString Reply, Emotion;
+    if (!ParseAssistantJson(AssistantContent, Reply, Emotion))
+    {
+        // fallback — 모델이 JSON 안 지킴. content 원문을 reply로.
+        UE_LOG(LogNpcChat, Warning,
+            TEXT("[%s] Assistant content not in JSON format, using raw as reply."),
+            *NpcName);
+        Reply = AssistantContent;
+        Emotion = TEXT("neutral");
+    }
+
+    UE_LOG(LogNpcChat, Log, TEXT("[%s] Parsed reply='%s', emotion='%s'"),
+           *NpcName, *Reply, *Emotion);
+
+    // History 누적은 Task 7 에서 추가.
+
+    OnChatResponseReceived.Broadcast(Reply, Emotion, Affinity);
 }
 
 FString UNpcChatComponent::BuildSystemPrompt() const
@@ -160,7 +219,26 @@ bool UNpcChatComponent::ParseAssistantJson(const FString& Content,
                                            FString& OutReply,
                                            FString& OutEmotion) const
 {
-    return false;   // stub — Task 6에서 구현
+    OutReply.Reset();
+    OutEmotion.Reset();
+
+    TSharedPtr<FJsonObject> Inner;
+    TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(Content);
+    if (!FJsonSerializer::Deserialize(Reader, Inner) || !Inner.IsValid())
+    {
+        return false;
+    }
+
+    if (!Inner->TryGetStringField(TEXT("reply"), OutReply))
+    {
+        return false;
+    }
+    // emotion 은 없어도 "neutral" 로 fallback 가능
+    if (!Inner->TryGetStringField(TEXT("emotion"), OutEmotion))
+    {
+        OutEmotion = TEXT("neutral");
+    }
+    return true;
 }
 
 void UNpcChatComponent::TrimHistory()
