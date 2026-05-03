@@ -151,6 +151,7 @@ TSharedRef<FJsonObject> UNpcChatComponent::BuildRequestBody(const FString& UserI
     TSharedRef<FJsonObject> Body = MakeShared<FJsonObject>();
     Body->SetStringField(TEXT("model"), ModelName);
     Body->SetNumberField(TEXT("temperature"), Temperature);
+    Body->SetBoolField(TEXT("stream"), false);   // SSE 스트리밍 비활성화 — Unreal HTTP가 처리 불가
     Body->SetArrayField(TEXT("messages"), Messages);
     return Body;
 }
