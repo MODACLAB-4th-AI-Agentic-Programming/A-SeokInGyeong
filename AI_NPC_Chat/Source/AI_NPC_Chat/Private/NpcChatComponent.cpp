@@ -15,7 +15,32 @@ UNpcChatComponent::UNpcChatComponent()
 
 void UNpcChatComponent::SendPlayerMessage(const FString& PlayerInput)
 {
-    UE_LOG(LogNpcChat, Warning, TEXT("SendPlayerMessage: stub — not implemented yet. Input='%s'"), *PlayerInput);
+    if (PlayerInput.IsEmpty())
+    {
+        UE_LOG(LogNpcChat, Warning, TEXT("SendPlayerMessage: empty input, ignored."));
+        return;
+    }
+
+    if (bRequestInFlight)
+    {
+        UE_LOG(LogNpcChat, Warning, TEXT("SendPlayerMessage: previous request still in flight."));
+        OnChatRequestFailed.Broadcast(TEXT("이전 요청 처리 중"));
+        return;
+    }
+
+    PendingUserInput = PlayerInput;
+
+    // 요청 바디 직렬화
+    TSharedRef<FJsonObject> Body = BuildRequestBody(PlayerInput);
+    FString BodyString;
+    TSharedRef<TJsonWriter<TCHAR, TCondensedJsonPrintPolicy<TCHAR>>> Writer
+        = TJsonWriterFactory<TCHAR, TCondensedJsonPrintPolicy<TCHAR>>::Create(&BodyString);
+    FJsonSerializer::Serialize(Body, Writer);
+
+    UE_LOG(LogNpcChat, Log, TEXT("[%s] Outgoing request body:\n%s"),
+           *NpcName, *BodyString);
+
+    // HTTP 송신은 Task 5 에서 추가. 일단 여기서 끝.
 }
 
 void UNpcChatComponent::ClearHistory()
@@ -37,12 +62,56 @@ void UNpcChatComponent::HandleHttpResponse(FHttpRequestPtr Request,
 
 FString UNpcChatComponent::BuildSystemPrompt() const
 {
-    return FString();   // stub — Task 4에서 구현
+    return FString::Printf(TEXT(
+        "너는 %s.\n"
+        "%s\n"
+        "\n"
+        "플레이어의 너에 대한 호감도: %d/100\n"
+        "- 0~30: 차갑고 무뚝뚝하게, 짧게 답한다.\n"
+        "- 31~60: 평범하고 정중하게 답한다.\n"
+        "- 61~100: 따뜻하고 친근하게 답한다.\n"
+        "\n"
+        "반드시 아래 JSON 형식만 출력해라. 설명/주석/코드블록 절대 금지:\n"
+        "{\"reply\":\"<한국어 대사>\",\"emotion\":\"<neutral|happy|sad|angry|annoyed|shy>\"}"),
+        *NpcName,
+        *PersonaDescription,
+        Affinity);
 }
 
 TSharedRef<FJsonObject> UNpcChatComponent::BuildRequestBody(const FString& UserInput) const
 {
-    return MakeShared<FJsonObject>();   // stub — Task 4에서 구현
+    TArray<TSharedPtr<FJsonValue>> Messages;
+
+    // [0] system 메시지
+    {
+        TSharedRef<FJsonObject> SystemMsg = MakeShared<FJsonObject>();
+        SystemMsg->SetStringField(TEXT("role"), TEXT("system"));
+        SystemMsg->SetStringField(TEXT("content"), BuildSystemPrompt());
+        Messages.Add(MakeShared<FJsonValueObject>(SystemMsg));
+    }
+
+    // [1..N] history (오래된 것부터)
+    for (const FNpcChatMessage& Msg : History)
+    {
+        TSharedRef<FJsonObject> HistMsg = MakeShared<FJsonObject>();
+        HistMsg->SetStringField(TEXT("role"), Msg.Role);
+        HistMsg->SetStringField(TEXT("content"), Msg.Content);
+        Messages.Add(MakeShared<FJsonValueObject>(HistMsg));
+    }
+
+    // [N+1] 새로운 user 메시지
+    {
+        TSharedRef<FJsonObject> UserMsg = MakeShared<FJsonObject>();
+        UserMsg->SetStringField(TEXT("role"), TEXT("user"));
+        UserMsg->SetStringField(TEXT("content"), UserInput);
+        Messages.Add(MakeShared<FJsonValueObject>(UserMsg));
+    }
+
+    TSharedRef<FJsonObject> Body = MakeShared<FJsonObject>();
+    Body->SetStringField(TEXT("model"), ModelName);
+    Body->SetNumberField(TEXT("temperature"), Temperature);
+    Body->SetArrayField(TEXT("messages"), Messages);
+    return Body;
 }
 
 bool UNpcChatComponent::ParseAssistantJson(const FString& Content,
