@@ -35,7 +35,7 @@ public:
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="NPC Chat|Server",
               meta=(ClampMin="1"))
-    int32 TimeoutSeconds = 60;
+    int32 TimeoutSeconds = 180;
 
     // ── 페르소나 ──
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="NPC Chat|Persona")
