@@ -46,6 +46,7 @@ void UNpcChatComponent::SendPlayerMessage(const FString& PlayerInput)
     Request->SetURL(ServerUrl);
     Request->SetVerb(TEXT("POST"));
     Request->SetHeader(TEXT("Content-Type"), TEXT("application/json"));
+    Request->SetHeader(TEXT("Connection"), TEXT("close"));   // 연결 풀 재사용 방지 — 스테일 연결 실패 해결
     Request->SetTimeout(static_cast<float>(TimeoutSeconds));
     Request->SetContentAsString(BodyString);
     Request->OnProcessRequestComplete().BindUObject(
