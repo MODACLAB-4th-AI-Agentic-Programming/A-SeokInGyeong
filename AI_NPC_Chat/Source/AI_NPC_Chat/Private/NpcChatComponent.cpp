@@ -82,10 +82,20 @@ void UNpcChatComponent::HandleHttpResponse(FHttpRequestPtr Request,
 
     if (!bWasSuccessful || !Response.IsValid())
     {
-        UE_LOG(LogNpcChat, Error, TEXT("[%s] HTTP failed: connection/no response."), *NpcName);
-        OnChatRequestFailed.Broadcast(TEXT("연결 실패"));
+        if (RetryCount < MaxRetries)
+        {
+            RetryCount++;
+            UE_LOG(LogNpcChat, Warning, TEXT("[%s] Connection failed, retrying (%d/%d)..."),
+                   *NpcName, RetryCount, MaxRetries);
+            SendPlayerMessage(PendingUserInput);
+            return;
+        }
+        RetryCount = 0;
+        UE_LOG(LogNpcChat, Error, TEXT("[%s] HTTP failed after %d retries."), *NpcName, MaxRetries);
+        OnChatRequestFailed.Broadcast(TEXT("연결 실패 (재시도 초과)"));
         return;
     }
+    RetryCount = 0;   // 성공 시 초기화
 
     const int32 StatusCode = Response->GetResponseCode();
     const FString RawBody = Response->GetContentAsString();

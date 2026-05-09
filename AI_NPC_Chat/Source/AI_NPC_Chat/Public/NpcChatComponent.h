@@ -97,4 +97,6 @@ private:
 
     bool bRequestInFlight = false;
     FString PendingUserInput;
+    int32 RetryCount = 0;
+    static constexpr int32 MaxRetries = 2;
 };
