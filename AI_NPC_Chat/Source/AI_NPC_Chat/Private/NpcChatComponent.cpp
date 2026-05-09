@@ -189,6 +189,7 @@ void UNpcChatComponent::HandleHttpResponse(FHttpRequestPtr Request,
 FString UNpcChatComponent::BuildSystemPrompt() const
 {
     return FString::Printf(TEXT(
+        "/no_think\n"
         "너는 %s.\n"
         "%s\n"
         "\n"
