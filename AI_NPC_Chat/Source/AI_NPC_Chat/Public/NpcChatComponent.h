@@ -24,7 +24,7 @@ public:
 
     // ── 서버 설정 ──
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="NPC Chat|Server")
-    FString ServerUrl = TEXT("http://localhost:1234/v1/chat/completions");
+    FString ServerUrl = TEXT("http://127.0.0.1:1234/v1/chat/completions");
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="NPC Chat|Server")
     FString ModelName = TEXT("qwen2.5-7b-instruct-uncensored");
